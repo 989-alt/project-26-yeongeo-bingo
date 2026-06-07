@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>영어 빙고 — 단어 음성 호명 · Day 26</title>
+<meta name="description" content="교실용 영어 빙고. 단어 풀 입력 → 빙고판 생성 · 인쇄 · TTS 호명 · 자동 BINGO 감지." />
+<style>
+  :root {
+    --bg: #f7f4ed;
+    --ink: #1c1c1c;
+    --ink-soft: rgba(28,28,28,0.82);
+    --muted: #5f5f5d;
+    --line: #eceae4;
+    --strong-line: rgba(28,28,28,0.4);
+    --soft: rgba(28,28,28,0.04);
+    --softer: rgba(28,28,28,0.03);
+    --off-white: #fcfbf8;
+    --ring: rgba(59,130,246,0.55);
+    --accent: #c6532b;
+    --accent-soft: rgba(198,83,43,0.12);
+    --inset-shadow:
+      rgba(255,255,255,0.2) 0px 0.5px 0px 0px inset,
+      rgba(0,0,0,0.2) 0px 0px 0px 0.5px inset,
+      rgba(0,0,0,0.05) 0px 1px 2px 0px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  /* Header */
+  header {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 24px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .brand-logo {
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+    color: var(--ink);
+  }
+  .brand-tag {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .header-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  /* Buttons */
+  .btn {
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 400;
+    padding: 9px 16px;
+    border-radius: 6px;
+    border: 0;
+    cursor: pointer;
+    line-height: 1.2;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: opacity .15s, background-color .15s;
+  }
+  .btn:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-primary {
+    background: var(--ink);
+    color: var(--off-white);
+    box-shadow: var(--inset-shadow);
+  }
+  .btn-primary:hover:not(:disabled) { opacity: 0.9; }
+  .btn-primary:active:not(:disabled) { opacity: 0.8; }
+  .btn-ghost {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--strong-line);
+  }
+  .btn-ghost:hover:not(:disabled) { background: var(--soft); }
+  .btn-cream {
+    background: var(--bg);
+    color: var(--ink);
+    border: 1px solid var(--line);
+  }
+  .btn-cream:hover:not(:disabled) { background: var(--soft); }
+
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--line);
+    border-radius: 9999px;
+    padding: 3px;
+    background: var(--bg);
+  }
+  .seg button {
+    font-family: inherit;
+    font-size: 14px;
+    background: transparent;
+    border: 0;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--off-white);
+    box-shadow: var(--inset-shadow);
+  }
+  .seg button:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Layout */
+  main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 16px 24px 80px;
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .panel h2 {
+    margin: 0 0 12px;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+  .panel p.help {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 0 0 12px;
+  }
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .field textarea, .field input[type="text"], .field select {
+    font-family: inherit;
+    font-size: 14px;
+    width: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 12px;
+    resize: vertical;
+  }
+  .field textarea {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    min-height: 140px;
+    line-height: 1.45;
+  }
+  .field input[type="range"] { width: 100%; }
+  .field .row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .count-line {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .actions-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  /* Caller */
+  .caller {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 40px 28px 28px;
+    margin-bottom: 20px;
+  }
+  .caller-meta {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .caller-word {
+    font-size: clamp(54px, 8vw, 96px);
+    font-weight: 600;
+    letter-spacing: -2px;
+    line-height: 1.0;
+    margin: 8px 0 16px;
+    word-break: break-word;
+  }
+  .caller-meaning {
+    font-size: 24px;
+    color: var(--muted);
+    margin-bottom: 28px;
+    min-height: 36px;
+  }
+  .caller-meaning.hidden { visibility: hidden; }
+  .caller-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .caller-actions .grow { flex: 1; justify-content: center; }
+  .caller-empty {
+    font-size: 18px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .speaking {
+    animation: pulse 0.7s ease-in-out;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  /* Board */
+  .board-wrap {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px;
+  }
+  .board-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .board-title {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    margin: 0;
+  }
+  .board-stat {
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .board-stat strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .board-stat .bingo-count.has {
+    color: var(--accent);
+  }
+
+  .board {
+    display: grid;
+    gap: 6px;
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  .board.size-4 { grid-template-columns: repeat(4, 1fr); }
+  .board.size-5 { grid-template-columns: repeat(5, 1fr); }
+
+  .cell {
+    aspect-ratio: 1;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: center;
+    word-break: break-word;
+    overflow: hidden;
+    position: relative;
+    user-select: none;
+    transition: background-color .12s, border-color .12s;
+  }
+  .board.size-4 .cell { font-size: clamp(16px, 2vw, 26px); letter-spacing: -0.3px; }
+  .board.size-5 .cell { font-size: clamp(13px, 1.6vw, 21px); letter-spacing: -0.25px; }
+  .cell:hover { background: var(--soft); }
+  .cell:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: -2px;
+  }
+  .cell.marked {
+    background: var(--softer);
+    border-color: var(--strong-line);
+  }
+  .cell.marked .word { opacity: 0.45; text-decoration: line-through; text-decoration-thickness: 2px; }
+  .cell.called {
+    border-color: var(--strong-line);
+  }
+  .cell.in-bingo {
+    background: var(--accent-soft);
+    border: 2px solid var(--accent);
+    color: var(--accent);
+  }
+  .cell.in-bingo .word { opacity: 1; text-decoration: none; }
+
+  /* Called words list */
+  .history {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+  }
+  .history summary {
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--muted);
+    padding: 4px 0;
+  }
+  .history summary:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 4px; }
+  .history-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+  }
+  .pill {
+    font-size: 13px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 9999px;
+    padding: 4px 12px;
+    color: var(--ink);
+  }
+
+  /* Bingo banner */
+  .banner {
+    position: fixed;
+    inset: auto 0 24px 0;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .25s;
+  }
+  .banner.show { opacity: 1; }
+  .banner-card {
+    background: var(--ink);
+    color: var(--off-white);
+    padding: 14px 28px;
+    border-radius: 9999px;
+    font-size: 16px;
+    font-weight: 600;
+    box-shadow: var(--inset-shadow), rgba(0,0,0,0.18) 0 8px 24px;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--ink);
+    color: var(--off-white);
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    box-shadow: var(--inset-shadow);
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity .2s, transform .2s;
+    pointer-events: none;
+    max-width: 360px;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* Hint text */
+  .hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  kbd {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 11px;
+    color: var(--ink);
+  }
+
+  /* Print boards page */
+  .print-only { display: none; }
+
+  /* Print */
+  @media print {
+    @page { size: A4; margin: 12mm; }
+    body { background: #fff; color: #000; }
+    header, .settings-panel, .caller, .board-header, .history, .banner, .toast, .preview-only { display: none !important; }
+    main { display: block; padding: 0; max-width: none; }
+    .board-wrap { border: 0; padding: 0; background: transparent; }
+    .print-only { display: block; }
+    .print-page {
+      page-break-after: always;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 96vh;
+    }
+    .print-page:last-child { page-break-after: auto; }
+    .print-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .print-sub {
+      font-size: 12px;
+      color: #444;
+      margin-bottom: 14px;
+    }
+    .print-board {
+      display: grid;
+      gap: 0;
+      width: 170mm;
+      max-width: 100%;
+      border: 2px solid #000;
+    }
+    .print-board.size-4 { grid-template-columns: repeat(4, 1fr); }
+    .print-board.size-5 { grid-template-columns: repeat(5, 1fr); }
+    .print-cell {
+      aspect-ratio: 1;
+      border: 1px solid #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4mm;
+      text-align: center;
+      font-weight: 600;
+      color: #000;
+      background: #fff;
+      word-break: break-word;
+      overflow: hidden;
+    }
+    .print-board.size-4 .print-cell { font-size: 20pt; }
+    .print-board.size-5 .print-cell { font-size: 16pt; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="brand-logo">영어 빙고</span>
+    <span class="brand-tag" id="day-tag">Day 26 · 단어 음성 호명</span>
+  </div>
+  <div class="header-controls">
+    <div class="seg" role="group" aria-label="보드 크기 선택">
+      <button id="size-4" aria-pressed="false" data-size="4">4×4</button>
+      <button id="size-5" aria-pressed="true" data-size="5">5×5</button>
+    </div>
+    <button class="btn btn-ghost" id="print-btn">인쇄</button>
+  </div>
+</header>
+
+<main>
+  <!-- Settings panel -->
+  <section class="panel settings-panel" aria-labelledby="settings-title">
+    <h2 id="settings-title">단어 풀</h2>
+    <p class="help">한 줄에 한 단어씩 입력. 한글 뜻은 같은 줄에 <code>apple=사과</code> 형식 (선택).</p>
+
+    <div class="field">
+      <label for="word-input">영단어 (최소 25개 권장)</label>
+      <textarea id="word-input" placeholder="apple=사과&#10;book=책&#10;cat=고양이&#10;..." spellcheck="false"></textarea>
+      <div class="count-line" id="word-count">0개 단어</div>
+    </div>
+
+    <div class="actions-row" style="margin-bottom: 16px;">
+      <button class="btn btn-cream" id="load-sample">샘플 단어 불러오기</button>
+      <button class="btn btn-cream" id="clear-words">전체 지우기</button>
+    </div>
+
+    <h2 style="margin-top: 24px;">호명 옵션</h2>
+    <div class="field">
+      <label for="rate">발음 속도 <span id="rate-val">0.9</span>×</label>
+      <input type="range" id="rate" min="0.6" max="1.2" step="0.05" value="0.9" />
+    </div>
+    <div class="field">
+      <label for="voice-select">음성 선택</label>
+      <select id="voice-select"></select>
+    </div>
+    <div class="field">
+      <label class="row" style="cursor: pointer;">
+        <input type="checkbox" id="show-meaning" checked />
+        한글 뜻 표시 (호명 카드)
+      </label>
+    </div>
+
+    <p class="hint">
+      단축키: <kbd>Space</kbd> 다음 단어 · <kbd>R</kbd> 다시 듣기 · <kbd>Esc</kbd> 처음으로
+    </p>
+  </section>
+
+  <!-- Caller + Board -->
+  <section>
+    <div class="caller" aria-labelledby="caller-title">
+      <div class="caller-meta">
+        <span><strong id="called-count">0</strong> / <span id="pool-count">0</span> 호명</span>
+        <span id="caller-title" class="visually-hidden">현재 호명 단어</span>
+        <span>남은 단어 <strong id="remain-count">0</strong>개</span>
+      </div>
+
+      <div id="caller-body">
+        <div class="caller-empty" id="caller-empty">
+          단어 풀을 입력하고 <strong>다음 단어</strong>를 눌러 호명을 시작하세요.
+        </div>
+        <div id="caller-active" style="display:none;">
+          <div class="caller-word" id="caller-word" aria-live="polite"></div>
+          <div class="caller-meaning" id="caller-meaning"></div>
+        </div>
+      </div>
+
+      <div class="caller-actions">
+        <button class="btn btn-primary grow" id="next-btn">다음 단어 (Space)</button>
+        <button class="btn btn-ghost" id="repeat-btn">↻ 다시 듣기 (R)</button>
+        <button class="btn btn-ghost" id="reset-btn">↶ 처음으로</button>
+      </div>
+    </div>
+
+    <div class="board-wrap">
+      <div class="board-header">
+        <h2 class="board-title">학생 빙고판 미리보기</h2>
+        <div class="board-stat">
+          빙고 라인 <strong class="bingo-count" id="bingo-count">0</strong> ·
+          <button class="btn btn-cream" id="reshuffle-btn" style="padding: 4px 12px; font-size: 13px;">다른 판</button>
+        </div>
+      </div>
+      <div class="board size-5" id="board" role="grid" aria-label="빙고판"></div>
+      <details class="history">
+        <summary>호명된 단어 보기</summary>
+        <div class="history-list" id="history-list" aria-live="polite"></div>
+      </details>
+    </div>
+  </section>
+
+  <!-- Print pages (hidden by default, shown via print) -->
+  <section class="print-only" id="print-section" aria-hidden="true"></section>
+</main>
+
+<div class="banner" id="bingo-banner" role="status" aria-live="polite">
+  <div class="banner-card" id="banner-text">🎉 BINGO!</div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+  // -------- Constants --------
+  const STORAGE_KEY = "yeongeo-bingo:v1";
+  const SAMPLE_WORDS = [
+    "apple=사과", "book=책", "cat=고양이", "dog=개", "egg=달걀",
+    "fish=물고기", "girl=여자아이", "hat=모자", "ice=얼음", "jump=점프하다",
+    "kite=연", "lion=사자", "milk=우유", "nose=코", "octopus=문어",
+    "pig=돼지", "queen=여왕", "rabbit=토끼", "sun=해", "tiger=호랑이",
+    "umbrella=우산", "violin=바이올린", "water=물", "box=상자", "yellow=노란색",
+    "zebra=얼룩말", "school=학교", "teacher=선생님", "friend=친구", "happy=행복한"
+  ];
+
+  // -------- State --------
+  let state = {
+    size: 5,
+    rate: 0.9,
+    voiceName: null,
+    showMeaning: true,
+    pool: [],            // [{word, meaning}]
+    board: [],           // strings (flat, length = size*size)
+    marked: new Set(),   // indexes of marked cells
+    calledQueue: [],     // shuffled call order (full pool)
+    calledIdx: -1,       // current index into calledQueue
+    historyWords: new Set(), // words that have been called (string set)
+  };
+
+  // -------- Storage --------
+  function save() {
+    try {
+      const persist = {
+        size: state.size,
+        rate: state.rate,
+        voiceName: state.voiceName,
+        showMeaning: state.showMeaning,
+        wordsRaw: document.getElementById("word-input").value,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(persist));
+    } catch (e) { /* private mode safe */ }
+  }
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (e) { return null; }
+  }
+
+  // -------- Parsing --------
+  function parseWords(raw) {
+    const lines = (raw || "")
+      .split(/\r?\n/)
+      .map(s => s.trim())
+      .filter(Boolean);
+    const seen = new Set();
+    const out = [];
+    for (const line of lines) {
+      // also support comma/space separated quick paste
+      const tokens = line.includes("=") ? [line] : line.split(/[,\t]+/).map(s => s.trim()).filter(Boolean);
+      for (const tok of tokens) {
+        let word, meaning = "";
+        if (tok.includes("=")) {
+          const [w, ...rest] = tok.split("=");
+          word = (w || "").trim();
+          meaning = rest.join("=").trim();
+        } else {
+          word = tok.trim();
+        }
+        const key = word.toLowerCase();
+        if (!word || seen.has(key)) continue;
+        seen.add(key);
+        out.push({ word, meaning });
+      }
+    }
+    return out;
+  }
+
+  // -------- Shuffle (Fisher-Yates) --------
+  function shuffled(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // -------- Pool / Board build --------
+  function rebuildPool() {
+    const raw = document.getElementById("word-input").value;
+    state.pool = parseWords(raw);
+    document.getElementById("word-count").textContent =
+      `${state.pool.length}개 단어` + (state.pool.length < state.size * state.size
+        ? ` · ${state.size}×${state.size} 보드에는 ${state.size * state.size}개 이상 필요` : ` · 충분합니다.`);
+    document.getElementById("pool-count").textContent = state.pool.length;
+    save();
+    return state.pool;
+  }
+
+  function buildBoard() {
+    const need = state.size * state.size;
+    if (state.pool.length < need) {
+      state.board = [];
+      renderBoard();
+      return false;
+    }
+    const picks = shuffled(state.pool.map(p => p.word)).slice(0, need);
+    state.board = picks;
+    state.marked = new Set();
+    renderBoard();
+    updateBingoCount();
+    return true;
+  }
+
+  function newCallQueue() {
+    state.calledQueue = shuffled(state.pool.map(p => p.word));
+    state.calledIdx = -1;
+    state.historyWords = new Set();
+    document.getElementById("called-count").textContent = "0";
+    document.getElementById("remain-count").textContent = state.pool.length;
+    document.getElementById("history-list").innerHTML = "";
+    document.getElementById("caller-empty").style.display = "";
+    document.getElementById("caller-active").style.display = "none";
+    renderBoard();
+  }
+
+  // -------- Rendering --------
+  function renderBoard() {
+    const board = document.getElementById("board");
+    board.className = `board size-${state.size}`;
+    board.innerHTML = "";
+    if (state.board.length === 0) {
+      const msg = document.createElement("div");
+      msg.style.gridColumn = `1 / -1`;
+      msg.style.padding = "32px 8px";
+      msg.style.textAlign = "center";
+      msg.style.color = "var(--muted)";
+      msg.style.fontSize = "14px";
+      msg.textContent = `단어 ${state.size * state.size}개 이상 입력 후 자동으로 표시됩니다.`;
+      board.appendChild(msg);
+      return;
+    }
+    const bingoSet = computeBingoIndexSet();
+    state.board.forEach((word, idx) => {
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "cell";
+      cell.setAttribute("role", "gridcell");
+      cell.dataset.idx = idx;
+      const marked = state.marked.has(idx);
+      const called = state.historyWords.has(word.toLowerCase());
+      const inBingo = bingoSet.has(idx);
+      if (marked) cell.classList.add("marked");
+      if (called) cell.classList.add("called");
+      if (inBingo) cell.classList.add("in-bingo");
+      cell.setAttribute("aria-pressed", marked ? "true" : "false");
+      cell.setAttribute("aria-label", `${word}${marked ? ", 체크됨" : ""}${called ? ", 호명됨" : ""}`);
+      const span = document.createElement("span");
+      span.className = "word";
+      span.textContent = word;
+      cell.appendChild(span);
+      cell.addEventListener("click", () => toggleCell(idx));
+      board.appendChild(cell);
+    });
+  }
+
+  function toggleCell(idx) {
+    if (state.marked.has(idx)) state.marked.delete(idx);
+    else state.marked.add(idx);
+    renderBoard();
+    updateBingoCount();
+  }
+
+  // -------- BINGO logic --------
+  function getLines(size) {
+    const lines = [];
+    for (let r = 0; r < size; r++) {
+      const row = [];
+      for (let c = 0; c < size; c++) row.push(r * size + c);
+      lines.push(row);
+    }
+    for (let c = 0; c < size; c++) {
+      const col = [];
+      for (let r = 0; r < size; r++) col.push(r * size + c);
+      lines.push(col);
+    }
+    const d1 = [], d2 = [];
+    for (let i = 0; i < size; i++) {
+      d1.push(i * size + i);
+      d2.push(i * size + (size - 1 - i));
+    }
+    lines.push(d1, d2);
+    return lines;
+  }
+
+  function computeBingoIndexSet() {
+    const size = state.size;
+    const lines = getLines(size);
+    const bingoCells = new Set();
+    for (const line of lines) {
+      if (line.every(i => state.marked.has(i))) {
+        line.forEach(i => bingoCells.add(i));
+      }
+    }
+    return bingoCells;
+  }
+
+  function countBingoLines() {
+    const lines = getLines(state.size);
+    return lines.filter(line => line.every(i => state.marked.has(i))).length;
+  }
+
+  let lastBingoCount = 0;
+  function updateBingoCount() {
+    const n = countBingoLines();
+    const el = document.getElementById("bingo-count");
+    el.textContent = n;
+    el.classList.toggle("has", n > 0);
+    if (n > lastBingoCount && n > 0) {
+      showBingoBanner(n);
+    }
+    lastBingoCount = n;
+  }
+
+  function showBingoBanner(n) {
+    const banner = document.getElementById("bingo-banner");
+    const text = document.getElementById("banner-text");
+    text.textContent = n === 1 ? "🎉 BINGO!" : `🎉 BINGO! · ${n}줄 완성`;
+    banner.classList.add("show");
+    clearTimeout(showBingoBanner._t);
+    showBingoBanner._t = setTimeout(() => banner.classList.remove("show"), 2400);
+  }
+
+  // -------- Caller --------
+  function callNext() {
+    if (state.pool.length === 0) {
+      showToast("단어 풀에 단어를 먼저 입력하세요.");
+      return;
+    }
+    if (state.calledQueue.length === 0 || state.calledIdx >= state.calledQueue.length - 1) {
+      // start new round if not started OR all called
+      if (state.calledIdx >= state.calledQueue.length - 1 && state.calledQueue.length > 0) {
+        showToast("모든 단어를 호명했습니다.");
+        return;
+      }
+      // first call → ensure queue is built
+      if (state.calledQueue.length === 0) {
+        state.calledQueue = shuffled(state.pool.map(p => p.word));
+      }
+    }
+    state.calledIdx++;
+    const word = state.calledQueue[state.calledIdx];
+    const entry = state.pool.find(p => p.word === word);
+    const meaning = entry ? entry.meaning : "";
+    state.historyWords.add(word.toLowerCase());
+
+    document.getElementById("caller-empty").style.display = "none";
+    document.getElementById("caller-active").style.display = "";
+    const wordEl = document.getElementById("caller-word");
+    wordEl.textContent = word;
+    wordEl.classList.remove("speaking");
+    // re-trigger animation
+    void wordEl.offsetWidth;
+    wordEl.classList.add("speaking");
+    const meaningEl = document.getElementById("caller-meaning");
+    meaningEl.textContent = meaning || "";
+    meaningEl.classList.toggle("hidden", !state.showMeaning);
+
+    document.getElementById("called-count").textContent = state.calledIdx + 1;
+    document.getElementById("remain-count").textContent =
+      Math.max(0, state.calledQueue.length - state.calledIdx - 1);
+
+    renderHistory();
+    renderBoard();
+    speakWord(word);
+  }
+
+  function repeatCall() {
+    if (state.calledIdx < 0) return;
+    const word = state.calledQueue[state.calledIdx];
+    speakWord(word);
+    const wordEl = document.getElementById("caller-word");
+    wordEl.classList.remove("speaking");
+    void wordEl.offsetWidth;
+    wordEl.classList.add("speaking");
+  }
+
+  function renderHistory() {
+    const list = document.getElementById("history-list");
+    list.innerHTML = "";
+    const ws = state.calledQueue.slice(0, state.calledIdx + 1);
+    if (ws.length === 0) {
+      const e = document.createElement("span");
+      e.className = "pill";
+      e.style.color = "var(--muted)";
+      e.textContent = "아직 호명 없음";
+      list.appendChild(e);
+      return;
+    }
+    ws.slice().reverse().forEach(w => {
+      const entry = state.pool.find(p => p.word === w);
+      const pill = document.createElement("span");
+      pill.className = "pill";
+      pill.textContent = entry && entry.meaning ? `${w} · ${entry.meaning}` : w;
+      list.appendChild(pill);
+    });
+  }
+
+  function resetGame() {
+    if (state.calledIdx >= 0 && !confirm("호명 기록을 초기화하고 처음부터 시작할까요?")) return;
+    newCallQueue();
+    state.marked = new Set();
+    lastBingoCount = 0;
+    renderBoard();
+    updateBingoCount();
+  }
+
+  // -------- Speech --------
+  let voices = [];
+  function loadVoices() {
+    if (!("speechSynthesis" in window)) return;
+    voices = window.speechSynthesis.getVoices().filter(v => /^en[-_]/i.test(v.lang) || /english/i.test(v.name));
+    const sel = document.getElementById("voice-select");
+    sel.innerHTML = "";
+    if (voices.length === 0) {
+      const opt = document.createElement("option");
+      opt.textContent = "(영어 음성을 찾을 수 없음 — 기본 음성 사용)";
+      opt.value = "";
+      sel.appendChild(opt);
+      sel.disabled = true;
+      return;
+    }
+    sel.disabled = false;
+    voices.forEach(v => {
+      const opt = document.createElement("option");
+      opt.value = v.name;
+      opt.textContent = `${v.name} (${v.lang})`;
+      sel.appendChild(opt);
+    });
+    if (state.voiceName && voices.some(v => v.name === state.voiceName)) {
+      sel.value = state.voiceName;
+    } else {
+      state.voiceName = voices[0].name;
+      sel.value = state.voiceName;
+    }
+  }
+  function speakWord(word) {
+    if (!("speechSynthesis" in window)) {
+      showToast("이 브라우저는 음성 합성을 지원하지 않습니다.");
+      return;
+    }
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(word);
+      u.rate = state.rate;
+      u.lang = "en-US";
+      const voice = voices.find(v => v.name === state.voiceName);
+      if (voice) u.voice = voice;
+      window.speechSynthesis.speak(u);
+    } catch (e) {
+      console.error("speak failed", e);
+    }
+  }
+
+  // -------- Toast --------
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => t.classList.remove("show"), 2400);
+  }
+
+  // -------- Print --------
+  function buildPrintSection() {
+    const section = document.getElementById("print-section");
+    section.innerHTML = "";
+    const need = state.size * state.size;
+    if (state.pool.length < need) return;
+    // Print 2 boards per print job — different shuffles for 모둠 사용
+    const boards = [shuffled(state.pool.map(p => p.word)).slice(0, need),
+                    shuffled(state.pool.map(p => p.word)).slice(0, need)];
+    boards.forEach((bd, i) => {
+      const page = document.createElement("div");
+      page.className = "print-page";
+      const title = document.createElement("div");
+      title.className = "print-title";
+      title.textContent = `영어 빙고 — ${state.size}×${state.size} 빙고판 #${i + 1}`;
+      const sub = document.createElement("div");
+      sub.className = "print-sub";
+      sub.textContent = `이름: __________  반: ____  번호: ____`;
+      const grid = document.createElement("div");
+      grid.className = `print-board size-${state.size}`;
+      bd.forEach(w => {
+        const cell = document.createElement("div");
+        cell.className = "print-cell";
+        cell.textContent = w;
+        grid.appendChild(cell);
+      });
+      page.appendChild(title);
+      page.appendChild(sub);
+      page.appendChild(grid);
+      section.appendChild(page);
+    });
+  }
+
+  // -------- Wiring --------
+  function setSize(size) {
+    state.size = size;
+    document.querySelectorAll(".seg button").forEach(b => {
+      b.setAttribute("aria-pressed", String(Number(b.dataset.size) === size));
+    });
+    rebuildPool();
+    buildBoard();
+    save();
+  }
+
+  function init() {
+    // Restore
+    const saved = load();
+    if (saved) {
+      state.size = saved.size === 4 ? 4 : 5;
+      state.rate = typeof saved.rate === "number" ? saved.rate : 0.9;
+      state.voiceName = saved.voiceName || null;
+      state.showMeaning = saved.showMeaning !== false;
+      document.getElementById("word-input").value = saved.wordsRaw || "";
+      document.getElementById("show-meaning").checked = state.showMeaning;
+      document.getElementById("rate").value = state.rate;
+      document.getElementById("rate-val").textContent = state.rate.toFixed(2);
+    }
+    setSize(state.size);
+
+    // Initial pool
+    rebuildPool();
+    buildBoard();
+
+    // Day tag
+    document.getElementById("day-tag").textContent = `Day 26 · 단어 음성 호명`;
+
+    // Events
+    document.getElementById("word-input").addEventListener("input", () => {
+      rebuildPool();
+      buildBoard();
+    });
+    document.getElementById("load-sample").addEventListener("click", () => {
+      document.getElementById("word-input").value = SAMPLE_WORDS.join("\n");
+      rebuildPool();
+      buildBoard();
+      newCallQueue();
+    });
+    document.getElementById("clear-words").addEventListener("click", () => {
+      if (!confirm("단어 풀을 모두 비울까요?")) return;
+      document.getElementById("word-input").value = "";
+      rebuildPool();
+      buildBoard();
+      newCallQueue();
+    });
+    document.querySelectorAll(".seg button").forEach(b => {
+      b.addEventListener("click", () => setSize(Number(b.dataset.size)));
+    });
+
+    document.getElementById("next-btn").addEventListener("click", callNext);
+    document.getElementById("repeat-btn").addEventListener("click", repeatCall);
+    document.getElementById("reset-btn").addEventListener("click", resetGame);
+    document.getElementById("reshuffle-btn").addEventListener("click", () => {
+      if (state.pool.length < state.size * state.size) {
+        showToast("단어가 충분하지 않습니다.");
+        return;
+      }
+      const picks = shuffled(state.pool.map(p => p.word)).slice(0, state.size * state.size);
+      state.board = picks;
+      state.marked = new Set();
+      lastBingoCount = 0;
+      renderBoard();
+      updateBingoCount();
+    });
+
+    document.getElementById("rate").addEventListener("input", (e) => {
+      state.rate = parseFloat(e.target.value);
+      document.getElementById("rate-val").textContent = state.rate.toFixed(2);
+      save();
+    });
+    document.getElementById("voice-select").addEventListener("change", (e) => {
+      state.voiceName = e.target.value || null;
+      save();
+    });
+    document.getElementById("show-meaning").addEventListener("change", (e) => {
+      state.showMeaning = e.target.checked;
+      document.getElementById("caller-meaning").classList.toggle("hidden", !state.showMeaning);
+      save();
+    });
+    document.getElementById("print-btn").addEventListener("click", () => {
+      buildPrintSection();
+      // small delay so layout settles
+      setTimeout(() => window.print(), 50);
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener("keydown", (e) => {
+      if (e.target.matches("input, textarea, select")) return;
+      if (e.key === " " || e.code === "Space") {
+        e.preventDefault();
+        callNext();
+      } else if (e.key === "r" || e.key === "R") {
+        repeatCall();
+      } else if (e.key === "Escape") {
+        resetGame();
+      }
+    });
+
+    // Voices may load asynchronously
+    if ("speechSynthesis" in window) {
+      loadVoices();
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    } else {
+      document.getElementById("voice-select").disabled = true;
+    }
+
+    // If no words yet, load sample so first-time users see board
+    if (state.pool.length === 0) {
+      document.getElementById("word-input").value = SAMPLE_WORDS.join("\n");
+      rebuildPool();
+      buildBoard();
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>
